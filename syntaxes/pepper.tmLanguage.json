@@ -1,0 +1,56 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Pepper",
+  "scopeName": "source.pep",
+  "patterns": [
+    { "include": "#string" },
+    { "include": "#number" },
+    { "include": "#keyword" },
+    { "include": "#builtin-type" },
+    { "include": "#operator" }
+  ],
+  "repository": {
+    "string": {
+      "name": "string.quoted.double.pep",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "match": "\\\\.", "name": "constant.character.escape.pep" }
+      ]
+    },
+    "number": {
+      "patterns": [
+        { "match": "\\b[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?\\b", "name": "constant.numeric.float.pep" },
+        { "match": "\\b[0-9]+\\b", "name": "constant.numeric.integer.pep" }
+      ]
+    },
+    "keyword": {
+      "patterns": [
+        {
+          "match": "\\b(import|use|struct|var|const|if|else|while|return|extern|and|or|new|construct|destruct|static|sizeof|trait|extend)\\b",
+          "name": "keyword.control.pep"
+        },
+        {
+          "match": "\\b(true|false|null)\\b",
+          "name": "constant.language.pep"
+        }
+      ]
+    },
+    "builtin-type": {
+      "patterns": [
+        {
+          "match": "\\b(int|float|bool|string|void|char|long|ulong|byte)\\b",
+          "name": "storage.type.builtin.pep"
+        }
+      ]
+    },
+    "operator": {
+      "patterns": [
+        {
+          "match": "(<<=|>>=|==|!=|<=|>=|\\+=|-=|\\*=|/=|%=|\\+\\+|--|<<|>>|\\*\\*|&&|\\|\\||&=|\\|=|\\^=|\\+|-|\\*|/|%|<|>|&|\\||\\^|!|~)",
+          "name": "keyword.operator.pep"
+        }
+      ]
+    }
+  }
+}

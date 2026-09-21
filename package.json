@@ -1,0 +1,53 @@
+{
+  "name": "pepper-language",
+  "displayName": "Pepper Language",
+  "description": "Language support for the Pepper language: syntax highlighting, diagnostics, hover, completion, and go-to-definition via pepper-lsp.",
+  "version": "0.1.0",
+  "publisher": "pepper",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onLanguage:pep"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "pep",
+        "aliases": [
+          "Pepper",
+          "pep"
+        ],
+        "extensions": [
+          ".pep"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "pep",
+        "scopeName": "source.pep",
+        "path": "./syntaxes/pepper.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Pepper",
+      "properties": {
+        "pepper.lspPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional override for the pepper-lsp server binary. Empty (default) uses the server bundled with the extension; set a path (e.g. 'target/debug/pepper-lsp') to use your own build."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}
