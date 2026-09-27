@@ -39,7 +39,7 @@
     "builtin-type": {
       "patterns": [
         {
-          "match": "\\b(int|float|bool|string|void|char|long|ulong|byte)\\b",
+          "match": "\\b(int|float|bool|void|char|long|ulong|byte|String|Array|HashMap|HashSet)\\b",
           "name": "storage.type.builtin.pep"
         }
       ]
