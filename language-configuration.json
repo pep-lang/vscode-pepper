@@ -1,4 +1,7 @@
 {
+  "comments": {
+    "lineComment": "#"
+  },
   "brackets": [
     ["{", "}"],
     ["[", "]"],
@@ -15,5 +18,11 @@
     ["[", "]"],
     ["(", ")"],
     ["\"", "\""]
+  ],
+  "onEnterRules": [
+    {
+      "beforeText": "^\\s*##(?!#).*$",
+      "action": { "indent": "none", "appendText": "## " }
+    }
   ]
 }

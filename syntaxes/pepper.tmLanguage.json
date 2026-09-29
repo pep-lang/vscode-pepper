@@ -3,6 +3,7 @@
   "name": "Pepper",
   "scopeName": "source.pep",
   "patterns": [
+    { "include": "#comment" },
     { "include": "#import" },
     { "include": "#string" },
     { "include": "#number" },
@@ -11,6 +12,26 @@
     { "include": "#operator" }
   ],
   "repository": {
+    "comment": {
+      "patterns": [
+        {
+          "name": "comment.line.documentation.pep",
+          "begin": "##(?!#)",
+          "end": "$",
+          "patterns": [
+            {
+              "match": "(@(?:param|typeParam))\\s+([A-Za-z_][A-Za-z0-9_]*)",
+              "captures": {
+                "1": { "name": "storage.type.class.doc.pep" },
+                "2": { "name": "variable.parameter.doc.pep" }
+              }
+            },
+            { "match": "@[A-Za-z]+", "name": "storage.type.class.doc.pep" }
+          ]
+        },
+        { "name": "comment.line.number-sign.pep", "match": "#.*$" }
+      ]
+    },
     "import": {
       "name": "meta.import.pep",
       "begin": "\\b(import)\\b",
