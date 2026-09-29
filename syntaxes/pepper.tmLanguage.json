@@ -64,6 +64,10 @@
           "name": "keyword.control.pep"
         },
         {
+          "match": "\\bshared\\b(?=\\s*\\()",
+          "name": "storage.modifier.shared.pep"
+        },
+        {
           "match": "\\b(true|false|null)\\b",
           "name": "constant.language.pep"
         }
