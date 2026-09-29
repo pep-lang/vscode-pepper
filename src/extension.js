@@ -5,37 +5,90 @@ const fs = require("fs");
 const { LanguageClient } = require("vscode-languageclient/node");
 const { bundledServer } = require("./serverPath");
 
+/** @type {LanguageClient | null} */
+let client = null;
+
 /** @param {import('vscode').ExtensionContext} context */
-function activate(context) {
+async function activate(context) {
+  const vscode = require("vscode");
   const config = workspaceGetConfig();
-  const serverModule = resolveServerPath(config);
-  if (!serverModule) {
+  const serverPath = resolveServerPath(config);
+  if (!serverPath) {
     showLspMissing(config);
     return; // highlighting still works without the server
   }
+  const shadowDir = path.join(context.globalStorageUri.fsPath, "server");
 
-  // pepper-lsp is a native binary, so launch it as a command over stdio.
-  const serverOptions = {
-    run: { command: serverModule },
-    debug: { command: serverModule },
+  const start = async () => {
+    // Run a copy, never the binary itself: Windows locks a running exe, which
+    // would stop `cargo build` or a reinstall of this extension replacing it.
+    const command = shadowCopy(serverPath, shadowDir);
+    // pepper-lsp is a native binary, so launch it as a command over stdio.
+    client = new LanguageClient(
+      "pepper",
+      "Pepper Language Server",
+      { run: { command }, debug: { command } },
+      { documentSelector: [{ language: "pep" }], synchronize: { fileEvents: [] } }
+    );
+    await client.start();
+  };
+  const restart = async () => {
+    if (client) await client.stop();
+    await start();
   };
 
-  const clientOptions = {
-    documentSelector: [{ language: "pep" }],
-    synchronize: { fileEvents: [] },
-  };
-
-  const client = new LanguageClient(
-    "pepper",
-    "Pepper Language Server",
-    serverOptions,
-    clientOptions
+  context.subscriptions.push(
+    vscode.commands.registerCommand("pepper.restartServer", restart),
+    watchServer(serverPath, () =>
+      restart().then(
+        () => vscode.window.setStatusBarMessage("Pepper: language server restarted", 3000),
+        (e) => vscode.window.showErrorMessage(`Pepper: server restart failed: ${e}`)
+      )
+    )
   );
-
-  context.subscriptions.push(client.start());
+  await start();
 }
 
-function deactivate() {}
+function deactivate() {
+  return client?.stop();
+}
+
+/**
+ * Restart when the server binary is rebuilt or reinstalled. Polls rather than
+ * using fs.watch, which loses the file when cargo or an install replaces it;
+ * the debounce lets a build finish writing before the new binary is copied.
+ */
+function watchServer(serverPath, onChange) {
+  let timer = null;
+  const listener = (cur, prev) => {
+    if (cur.size === 0 || cur.mtimeMs === prev.mtimeMs) return; // gone or unchanged
+    clearTimeout(timer);
+    timer = setTimeout(onChange, 1500);
+  };
+  fs.watchFile(serverPath, { interval: 1000 }, listener);
+  return { dispose: () => { clearTimeout(timer); fs.unwatchFile(serverPath, listener); } };
+}
+
+/**
+ * Copies the server into `dir` under a name keyed by its mtime and size, and
+ * returns the copy's path. Stale copies are removed best-effort: one still
+ * running is locked on Windows and is removed on a later start instead.
+ */
+function shadowCopy(serverPath, dir) {
+  const st = fs.statSync(serverPath);
+  const ext = path.extname(serverPath);
+  const name = `pepper-lsp-${Math.floor(st.mtimeMs)}-${st.size}${ext}`;
+  const copy = path.join(dir, name);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of fs.readdirSync(dir)) {
+    if (f !== name) fs.rm(path.join(dir, f), { force: true }, () => {});
+  }
+  if (!fs.existsSync(copy)) {
+    fs.copyFileSync(serverPath, copy);
+    fs.chmodSync(copy, 0o755);
+  }
+  return copy;
+}
 
 /** @returns {{ lspPath?: string }} */
 function workspaceGetConfig() {

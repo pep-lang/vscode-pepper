@@ -1,1 +1,4 @@
 node_modules/
+# Written by scripts/install-vscode-extension.ps1 and the VSIX workflow.
+server/
+*.vsix
