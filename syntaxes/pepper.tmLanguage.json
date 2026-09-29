@@ -3,6 +3,7 @@
   "name": "Pepper",
   "scopeName": "source.pep",
   "patterns": [
+    { "include": "#import" },
     { "include": "#string" },
     { "include": "#number" },
     { "include": "#keyword" },
@@ -10,6 +11,17 @@
     { "include": "#operator" }
   ],
   "repository": {
+    "import": {
+      "name": "meta.import.pep",
+      "begin": "\\b(import)\\b",
+      "beginCaptures": { "1": { "name": "keyword.control.import.pep" } },
+      "end": ";|$",
+      "patterns": [
+        { "include": "#string" },
+        { "match": "\\b(from|as)\\b", "name": "keyword.control.import.pep" },
+        { "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b", "name": "entity.name.namespace.pep" }
+      ]
+    },
     "string": {
       "name": "string.quoted.double.pep",
       "begin": "\"",
@@ -27,7 +39,7 @@
     "keyword": {
       "patterns": [
         {
-          "match": "\\b(import|use|struct|var|const|if|else|while|return|extern|and|or|new|construct|destruct|static|sizeof|trait|extend|export)\\b",
+          "match": "\\b(import|as|struct|var|const|if|else|while|return|extern|and|or|new|construct|destruct|static|sizeof|trait|extend|export)\\b",
           "name": "keyword.control.pep"
         },
         {
