@@ -39,7 +39,7 @@
     "keyword": {
       "patterns": [
         {
-          "match": "\\b(import|as|struct|var|const|if|else|while|return|extern|and|or|new|construct|destruct|static|sizeof|trait|extend|export)\\b",
+          "match": "\\b(import|as|struct|var|const|if|else|while|for|in|break|continue|return|extern|and|or|new|construct|destruct|static|sizeof|trait|extend|export)\\b",
           "name": "keyword.control.pep"
         },
         {
