@@ -28,7 +28,18 @@ async function activate(context) {
       "pepper",
       "Pepper Language Server",
       { run: { command }, debug: { command } },
-      { documentSelector: [{ language: "pep" }], synchronize: { fileEvents: [] } }
+      {
+        documentSelector: [{ language: "pep" }],
+        synchronize: { fileEvents: [] },
+        // Read once per server start; changing the setting restarts it.
+        initializationOptions: {
+          inlayHints: {
+            implicitConversions: vscode.workspace
+              .getConfiguration("pepper")
+              .get("inlayHints.implicitConversions", true),
+          },
+        },
+      }
     );
     await client.start();
   };
@@ -39,6 +50,9 @@ async function activate(context) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("pepper.restartServer", restart),
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("pepper.inlayHints.implicitConversions")) restart();
+    }),
     watchServer(serverPath, () =>
       restart().then(
         () => vscode.window.setStatusBarMessage("Pepper: language server restarted", 3000),
