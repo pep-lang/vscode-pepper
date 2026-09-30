@@ -5,6 +5,7 @@
   "patterns": [
     { "include": "#comment" },
     { "include": "#import" },
+    { "include": "#interpolated-string" },
     { "include": "#string" },
     { "include": "#character" },
     { "include": "#number" },
@@ -42,6 +43,23 @@
         { "include": "#string" },
         { "match": "\\b(from|as)\\b", "name": "keyword.control.import.pep" },
         { "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b", "name": "entity.name.namespace.pep" }
+      ]
+    },
+    "interpolated-string": {
+      "name": "string.interpolated.pep",
+      "begin": "\\$\"",
+      "end": "\"",
+      "patterns": [
+        { "match": "\\\\.", "name": "constant.character.escape.pep" },
+        { "match": "\\{\\{|\\}\\}", "name": "constant.character.escape.pep" },
+        {
+          "match": "(\\{)([A-Za-z_][A-Za-z0-9_]*)(\\})",
+          "captures": {
+            "1": { "name": "punctuation.section.interpolation.begin.pep" },
+            "2": { "name": "variable.other.readwrite.pep" },
+            "3": { "name": "punctuation.section.interpolation.end.pep" }
+          }
+        }
       ]
     },
     "string": {
