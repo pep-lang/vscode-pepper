@@ -18,6 +18,10 @@ async function activate(context) {
     return; // highlighting still works without the server
   }
   const shadowDir = path.join(context.globalStorageUri.fsPath, "server");
+  // One channel for every server this window starts, so a restart appends
+  // to the same output instead of adding another "Pepper Language Server".
+  const outputChannel = vscode.window.createOutputChannel("Pepper Language Server");
+  context.subscriptions.push(outputChannel);
 
   const start = async () => {
     // Run a copy, never the binary itself: Windows locks a running exe, which
@@ -30,6 +34,7 @@ async function activate(context) {
       { run: { command }, debug: { command } },
       {
         documentSelector: [{ language: "pep" }],
+        outputChannel,
         synchronize: { fileEvents: [] },
         // Read once per server start; changing the setting restarts it.
         initializationOptions: {
@@ -41,30 +46,62 @@ async function activate(context) {
         },
       }
     );
-    await client.start();
+    try {
+      await client.start();
+    } catch (e) {
+      await client.dispose().catch(() => {});
+      client = null;
+      throw e;
+    }
   };
-  const restart = async () => {
-    if (client) await client.stop();
-    await start();
-  };
+  // Restarts run one at a time: a rebuild and a settings change can ask
+  // together, and two overlapping restarts would leave two servers running.
+  let restarting = Promise.resolve();
+  const restart = (reason) =>
+    (restarting = restarting.catch(() => {}).then(async () => {
+      outputChannel.appendLine(`[Info  - ${new Date().toLocaleTimeString()}] Restarting: ${reason}.`);
+      const old = client;
+      client = null;
+      // A server that already exited (it crashed, or a reinstall replaced
+      // it) fails to stop; start the new one anyway.
+      if (old) await old.stop().catch(() => {});
+      await startWithRetry(start);
+    }));
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("pepper.restartServer", restart),
+    vscode.commands.registerCommand("pepper.restartServer", () => restart("requested")),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("pepper.inlayHints.implicitConversions")) restart();
+      if (e.affectsConfiguration("pepper.inlayHints.implicitConversions")) restart("settings changed");
     }),
     watchServer(serverPath, () =>
-      restart().then(
+      restart("the server binary changed").then(
         () => vscode.window.setStatusBarMessage("Pepper: language server restarted", 3000),
         (e) => vscode.window.showErrorMessage(`Pepper: server restart failed: ${e}`)
       )
     )
   );
-  await start();
+  await startWithRetry(start);
+}
+
+/**
+ * Runs `start`, retrying a few times: right after a reinstall the new binary
+ * can still be settling on disk, and launching it then fails ("spawn
+ * UNKNOWN" on Windows).
+ */
+async function startWithRetry(start) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await start();
+    } catch (e) {
+      if (attempt === 3) throw e;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+    }
+  }
 }
 
 function deactivate() {
-  return client?.stop();
+  // The server may already be gone; stopping it then is not an error.
+  return client?.stop().catch(() => {});
 }
 
 /**
@@ -98,8 +135,16 @@ function shadowCopy(serverPath, dir) {
     if (f !== name) fs.rm(path.join(dir, f), { force: true }, () => {});
   }
   if (!fs.existsSync(copy)) {
-    fs.copyFileSync(serverPath, copy);
-    fs.chmodSync(copy, 0o755);
+    // Copy under a temporary name and rename once complete, so a copy cut
+    // short (the source still being written) is never reused as the server.
+    const partial = `${copy}.${process.pid}.tmp`;
+    fs.copyFileSync(serverPath, partial);
+    if (fs.statSync(partial).size !== st.size) {
+      fs.rmSync(partial, { force: true });
+      throw new Error(`${serverPath} changed while it was being copied`);
+    }
+    fs.chmodSync(partial, 0o755);
+    fs.renameSync(partial, copy);
   }
   return copy;
 }
