@@ -4,14 +4,19 @@
   "description": "Language support for the Pepper language: syntax highlighting, diagnostics, hover, completion, and go-to-definition via pepper-lsp.",
   "version": "0.2.1",
   "publisher": "pepper",
-  "license": "MIT",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/justinboswell/pepper.git",
+    "directory": "tools/vscode-pepper"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
     "Programming Languages"
   ],
-  "main": "./src/extension.js",
+  "main": "./dist/extension.js",
   "activationEvents": [
     "onLanguage:pep"
   ],
@@ -59,7 +64,14 @@
       }
     ]
   },
+  "scripts": {
+    "bundle": "esbuild src/extension.js --bundle --platform=node --format=cjs --target=node18 --external:vscode --outfile=dist/extension.js",
+    "vscode:prepublish": "npm run bundle"
+  },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12"
   }
 }

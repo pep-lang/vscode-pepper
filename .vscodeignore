@@ -2,3 +2,6 @@
 .gitignore
 package-lock.json
 *.map
+# The bundle in dist/ holds the extension and its dependencies.
+src/**
+node_modules/**
