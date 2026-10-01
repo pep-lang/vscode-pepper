@@ -2,7 +2,7 @@
   "name": "pepper-language",
   "displayName": "Pepper Language",
   "description": "Language support for the Pepper language: syntax highlighting, diagnostics, hover, completion, and go-to-definition via pepper-lsp.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "pepper",
   "license": "MIT",
   "engines": {
