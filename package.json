@@ -53,6 +53,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show the constructor call an [Implicit] conversion inserts, such as Path( ... ) around a String passed where a Path is expected. Editor-wide inlay hints must also be on (editor.inlayHints.enabled)."
+        },
+        "pepper.inlayHints.parameterNames": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the parameter name before a literal argument passed by position, such as width: before 800 in resize(800, 600). Editor-wide inlay hints must also be on (editor.inlayHints.enabled)."
         }
       }
     },

@@ -42,6 +42,9 @@ async function activate(context) {
             implicitConversions: vscode.workspace
               .getConfiguration("pepper")
               .get("inlayHints.implicitConversions", true),
+            parameterNames: vscode.workspace
+              .getConfiguration("pepper")
+              .get("inlayHints.parameterNames", true),
           },
         },
       }
@@ -71,7 +74,7 @@ async function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand("pepper.restartServer", () => restart("requested")),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("pepper.inlayHints.implicitConversions")) restart("settings changed");
+      if (e.affectsConfiguration("pepper.inlayHints")) restart("settings changed");
     }),
     watchServer(serverPath, () =>
       restart("the server binary changed").then(
