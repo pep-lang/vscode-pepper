@@ -6,7 +6,7 @@ const path = require("path");
 function bundledServer(extensionDir) {
   const dir = bundledDir();
   if (!dir) return null;
-  const name = process.platform === "win32" ? "pepper-lsp.exe" : "pepper-lsp";
+  const name = process.platform === "win32" ? "pep-lsp.exe" : "pep-lsp";
   return path.join(extensionDir, "server", dir, name);
 }
 

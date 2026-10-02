@@ -1,4 +1,4 @@
-// Pepper language support: launches pepper-lsp over stdio and wires it up as
+// Pepper language support: launches pep-lsp over stdio and wires it up as
 // the language server for .pep files.
 const path = require("path");
 const fs = require("fs");
@@ -27,7 +27,7 @@ async function activate(context) {
     // Run a copy, never the binary itself: Windows locks a running exe, which
     // would stop `cargo build` or a reinstall of this extension replacing it.
     const command = shadowCopy(serverPath, shadowDir);
-    // pepper-lsp is a native binary, so launch it as a command over stdio.
+    // pep-lsp is a native binary, so launch it as a command over stdio.
     client = new LanguageClient(
       "pepper",
       "Pepper Language Server",
@@ -131,7 +131,7 @@ function watchServer(serverPath, onChange) {
 function shadowCopy(serverPath, dir) {
   const st = fs.statSync(serverPath);
   const ext = path.extname(serverPath);
-  const name = `pepper-lsp-${Math.floor(st.mtimeMs)}-${st.size}${ext}`;
+  const name = `pep-lsp-${Math.floor(st.mtimeMs)}-${st.size}${ext}`;
   const copy = path.join(dir, name);
   fs.mkdirSync(dir, { recursive: true });
   for (const f of fs.readdirSync(dir)) {
@@ -166,7 +166,7 @@ function workspaceGetConfig() {
  * Server resolution order:
  * 1. `pepper.lspPath`, if set and it exists — dev override (e.g. a debug build).
  * 2. The bundled server for this platform/arch:
- *    `server/<platform>-<arch>/pepper-lsp[.exe]` next to this extension, placed
+ *    `server/<platform>-<arch>/pep-lsp[.exe]` next to this extension, placed
  *    there by the CI packaging step (one binary per supported platform).
  */
 function resolveServerPath(config) {
@@ -180,8 +180,21 @@ function resolveServerPath(config) {
   return null;
 }
 
-/** Candidate paths for a configured `pepper.lspPath` value. */
+/**
+ * Candidate paths for a configured `pepper.lspPath` value. A path to the
+ * server's old name, `pepper-lsp`, tries the current `pep-lsp` beside it
+ * first, so a setting made before the rename keeps finding fresh builds.
+ */
 function candidatesFor(p) {
+  const base = path.basename(p);
+  if (base.startsWith("pepper-lsp")) {
+    const renamed = path.join(path.dirname(p), "pep-lsp" + base.slice("pepper-lsp".length));
+    return [...candidatesForPath(renamed), ...candidatesForPath(p)];
+  }
+  return candidatesForPath(p);
+}
+
+function candidatesForPath(p) {
   const candidates = [];
   if (path.isAbsolute(p)) {
     candidates.push(p);
