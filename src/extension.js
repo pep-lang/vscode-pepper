@@ -46,6 +46,9 @@ async function activate(context) {
               .getConfiguration("pepper")
               .get("inlayHints.parameterNames", true),
           },
+          buildOptions: vscode.workspace
+            .getConfiguration("pepper")
+            .get("buildOptions", []),
         },
       }
     );
@@ -74,7 +77,9 @@ async function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand("pepper.restartServer", () => restart("requested")),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("pepper.inlayHints")) restart("settings changed");
+      if (e.affectsConfiguration("pepper.inlayHints") || e.affectsConfiguration("pepper.buildOptions")) {
+        restart("settings changed");
+      }
     }),
     watchServer(serverPath, () =>
       restart("the server binary changed").then(

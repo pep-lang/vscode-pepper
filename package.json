@@ -58,6 +58,12 @@
           "type": "boolean",
           "default": true,
           "description": "Show the parameter name before a literal argument passed by position, such as width: before 800 in resize(800, 600). Editor-wide inlay hints must also be on (editor.inlayHints.enabled)."
+        },
+        "pepper.buildOptions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "The build options the language server assumes, as the compiler's -D takes them: NAME or NAME=VALUE (for example USE_ZLIB, LOG_LEVEL=2). They decide which [BuildOption] and [Target(BuildOption(...))] code is active."
         }
       }
     },
