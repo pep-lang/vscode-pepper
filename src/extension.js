@@ -12,7 +12,8 @@ let client = null;
 async function activate(context) {
   const vscode = require("vscode");
   const config = workspaceGetConfig();
-  const serverPath = resolveServerPath(config);
+  const server = resolveServer(config);
+  const serverPath = server?.path;
   if (!serverPath) {
     showLspMissing(config);
     return; // highlighting still works without the server
@@ -31,7 +32,7 @@ async function activate(context) {
     client = new LanguageClient(
       "pepper",
       "Pepper Language Server",
-      { run: { command }, debug: { command } },
+      { run: { command, options: server.options }, debug: { command, options: server.options } },
       {
         documentSelector: [{ language: "pep" }],
         outputChannel,
@@ -170,19 +171,90 @@ function workspaceGetConfig() {
 /**
  * Server resolution order:
  * 1. `pepper.lspPath`, if set and it exists — dev override (e.g. a debug build).
- * 2. The bundled server for this platform/arch:
+ * 2. The `pep-lsp` of the toolchain the first workspace folder uses, when
+ *    `pepper install` manages a Pepper home (see toolchainServer).
+ * 3. The bundled server for this platform/arch:
  *    `server/<platform>-<arch>/pep-lsp[.exe]` next to this extension, placed
  *    there by the CI packaging step (one binary per supported platform).
+ *
+ * Returns `{ path, options }`, where `options` are the spawn options the
+ * server runs with, or null when there is none.
  */
-function resolveServerPath(config) {
+function resolveServer(config) {
   const p = config.lspPath;
   if (p) {
     const found = candidatesFor(p).find((c) => fs.existsSync(c));
-    if (found) return found;
+    if (found) return { path: found, options: {} };
   }
+  const fromToolchain = toolchainServer();
+  if (fromToolchain) return fromToolchain;
   const bundled = bundledServer(path.join(__dirname, ".."));
-  if (bundled && fs.existsSync(bundled)) return bundled;
+  if (bundled && fs.existsSync(bundled)) return { path: bundled, options: {} };
   return null;
+}
+
+/**
+ * The `pep-lsp` of the toolchain the first workspace folder uses, asked of
+ * `pepper install which` there so the editor picks the toolchain the way
+ * `pepper` does (`PEPPER_TOOLCHAIN`, then the project's pep.toml, then the
+ * default). Null when there is no Pepper home, or it names no usable
+ * toolchain (a warning says why and the bundled server runs instead).
+ *
+ * The server runs from a copy outside the toolchain (see shadowCopy), so it
+ * is pointed at the toolchain's runtime with PEPPER_RUNTIME.
+ */
+function toolchainServer() {
+  const home = pepperHome();
+  if (!home) return null;
+  const exe = process.platform === "win32" ? ".exe" : "";
+  const pepper = path.join(home, "bin", "pepper" + exe);
+  if (!fs.existsSync(pepper)) return null;
+  let cwd = undefined;
+  try {
+    cwd = require("vscode").workspace.workspaceFolders?.[0]?.uri.fsPath;
+  } catch {}
+  const ran = require("child_process").spawnSync(pepper, ["install", "which"], {
+    cwd,
+    encoding: "utf8",
+    timeout: 10000,
+    windowsHide: true,
+  });
+  if (ran.status !== 0) {
+    const why = (ran.stderr || String(ran.error ?? "")).trim();
+    showWarning(`Pepper: using the bundled language server: 'pepper install which' failed: ${why}`);
+    return null;
+  }
+  const compiler = ran.stdout.split(/\r?\n/)[1]?.trim();
+  if (!compiler) return null;
+  const bin = path.dirname(compiler);
+  const server = path.join(bin, "pep-lsp" + exe);
+  if (!fs.existsSync(server)) {
+    showWarning(`Pepper: using the bundled language server: the toolchain has no ${server}.`);
+    return null;
+  }
+  const env = { ...process.env, PEPPER_RUNTIME: path.join(path.dirname(bin), "runtime") };
+  return { path: server, options: { env } };
+}
+
+/**
+ * The Pepper home `pepper install` manages: `PEPPER_HOME`, else
+ * `%LOCALAPPDATA%\pepper` on Windows or `~/.pepper`, when it has a
+ * `toolchains` folder.
+ */
+function pepperHome() {
+  let home = process.env.PEPPER_HOME;
+  if (!home) {
+    const local = process.platform === "win32" ? process.env.LOCALAPPDATA : null;
+    home = local ? path.join(local, "pepper") : path.join(require("os").homedir(), ".pepper");
+  }
+  if (!fs.existsSync(path.join(home, "toolchains"))) return null;
+  return home;
+}
+
+function showWarning(message) {
+  try {
+    require("vscode").window.showWarningMessage(message);
+  } catch {}
 }
 
 /**
