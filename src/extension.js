@@ -26,7 +26,7 @@ async function activate(context) {
 
   const start = async () => {
     // Run a copy, never the binary itself: Windows locks a running exe, which
-    // would stop `cargo build` or a reinstall of this extension replacing it.
+    // would stop a rebuild (`pep-build ... -o pep-lsp`) or a reinstall of this extension replacing it.
     const command = shadowCopy(serverPath, shadowDir);
     // pep-lsp is a native binary, so launch it as a command over stdio.
     client = new LanguageClient(
@@ -115,7 +115,7 @@ function deactivate() {
 
 /**
  * Restart when the server binary is rebuilt or reinstalled. Polls rather than
- * using fs.watch, which loses the file when cargo or an install replaces it;
+ * using fs.watch, which loses the file when a rebuild or an install replaces it;
  * the debounce lets a build finish writing before the new binary is copied.
  */
 function watchServer(serverPath, onChange) {
@@ -297,7 +297,7 @@ function showLspMissing(config) {
   try {
     const vscode = require("vscode");
     vscode.window.showWarningMessage(
-      `Pepper language server not found${config.lspPath ? ` at '${config.lspPath}'` : ""}. Install the packaged extension (it bundles the server) or build it with 'cargo build -p pepper-lsp' and set 'pepper.lspPath'. Syntax highlighting still works.`
+      `Pepper language server not found${config.lspPath ? ` at '${config.lspPath}'` : ""}. Install the packaged extension (it bundles the server) or build it with 'pep-build -O -I tools tools/pep-lsp/main.pep -o pep-lsp' and set 'pepper.lspPath'. Syntax highlighting still works.`
     );
   } catch {}
 }

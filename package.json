@@ -47,7 +47,7 @@
         "pepper.lspPath": {
           "type": "string",
           "default": "",
-          "description": "Optional override for the pep-lsp server binary. Empty (default) uses the pep-lsp of the toolchain 'pepper install which' reports for the workspace, else the server bundled with the extension; set a path (e.g. 'target/release/pep-lsp') to use your own build. The server restarts automatically whenever that binary is rebuilt."
+          "description": "Optional override for the pep-lsp server binary. Empty (default) uses the pep-lsp of the toolchain 'pepper install which' reports for the workspace, else the server bundled with the extension; set a path (e.g. 'target/pep-lsp/pep-lsp') to use your own build. The server restarts automatically whenever that binary is rebuilt."
         },
         "pepper.inlayHints.implicitConversions": {
           "type": "boolean",
