@@ -297,7 +297,7 @@ function showLspMissing(config) {
   try {
     const vscode = require("vscode");
     vscode.window.showWarningMessage(
-      `Pepper language server not found${config.lspPath ? ` at '${config.lspPath}'` : ""}. Install the packaged extension (it bundles the server) or build it with 'pep-build -O -I tools tools/pep-lsp/main.pep -o pep-lsp' and set 'pepper.lspPath'. Syntax highlighting still works.`
+      `Pepper language server not found${config.lspPath ? ` at '${config.lspPath}'` : ""}. Install the packaged extension (it bundles the server) or build it with 'pep-build -O tools/pep-lsp/main.pep -o pep-lsp' and set 'pepper.lspPath'. Syntax highlighting still works.`
     );
   } catch {}
 }
