@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const { LanguageClient } = require("vscode-languageclient/node");
 const { bundledServer } = require("./serverPath");
+const { suggestedInstall, isOlder, installerCommand } = require("./toolchain");
 
 /** @type {LanguageClient | null} */
 let client = null;
@@ -12,7 +13,7 @@ let client = null;
 async function activate(context) {
   const vscode = require("vscode");
   const config = workspaceGetConfig();
-  const server = resolveServer(config);
+  const server = resolveServer(config, context);
   const serverPath = server?.path;
   if (!serverPath) {
     showLspMissing(config);
@@ -180,13 +181,13 @@ function workspaceGetConfig() {
  * Returns `{ path, options }`, where `options` are the spawn options the
  * server runs with, or null when there is none.
  */
-function resolveServer(config) {
+function resolveServer(config, context) {
   const p = config.lspPath;
   if (p) {
     const found = candidatesFor(p).find((c) => fs.existsSync(c));
     if (found) return { path: found, options: {} };
   }
-  const fromToolchain = toolchainServer();
+  const fromToolchain = toolchainServer(context);
   if (fromToolchain) return fromToolchain;
   const bundled = bundledServer(path.join(__dirname, ".."));
   if (bundled && fs.existsSync(bundled)) return { path: bundled, options: {} };
@@ -200,15 +201,22 @@ function resolveServer(config) {
  * default). Null when there is no Pepper home, or it names no usable
  * toolchain (a warning says why and the bundled server runs instead).
  *
+ * Offers to install what is missing: Pepper itself when there is no home,
+ * the toolchain `pepper install which` suggests when the one chosen is not
+ * installed, and an update when the default is older than this extension.
+ *
  * The server runs from a copy outside the toolchain (see shadowCopy), so it
  * is pointed at the toolchain's runtime with PEPPER_RUNTIME.
  */
-function toolchainServer() {
+function toolchainServer(context) {
   const home = pepperHome();
-  if (!home) return null;
   const exe = process.platform === "win32" ? ".exe" : "";
-  const pepper = path.join(home, "bin", "pepper" + exe);
-  if (!fs.existsSync(pepper)) return null;
+  const pepper = home ? path.join(home, "bin", "pepper" + exe) : null;
+  if (!pepper || !fs.existsSync(pepper)) {
+    const installer = installerCommand(process.platform);
+    offerInstall(context, "Pepper: no Pepper toolchain is installed; the bundled language server runs.", "Install Pepper", installer.command, installer.args);
+    return null;
+  }
   let cwd = undefined;
   try {
     cwd = require("vscode").workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -221,11 +229,25 @@ function toolchainServer() {
   });
   if (ran.status !== 0) {
     const why = (ran.stderr || String(ran.error ?? "")).trim();
-    showWarning(`Pepper: using the bundled language server: 'pepper install which' failed: ${why}`);
+    const message = `Pepper: using the bundled language server: 'pepper install which' failed: ${why}`;
+    const install = suggestedInstall(why);
+    if (!install) {
+      showWarning(message);
+      return null;
+    }
+    offerInstall(context, message, "Install", pepper, install);
     return null;
   }
-  const compiler = ran.stdout.split(/\r?\n/)[1]?.trim();
+  const [chosen, compilerLine] = ran.stdout.split(/\r?\n/);
+  const compiler = compilerLine?.trim();
   if (!compiler) return null;
+  // Only the default is updated: a toolchain a project pins or
+  // PEPPER_TOOLCHAIN names is that choice's to change.
+  const wanted = require("../package.json").version;
+  const version = chosen.split(" ")[0];
+  if (chosen.endsWith("(the default)") && isOlder(version, wanted)) {
+    offerInstall(context, `Pepper: the default toolchain, ${version}, is older than this extension (${wanted}).`, "Update", pepper, ["install", "update"]);
+  }
   const bin = path.dirname(compiler);
   const server = path.join(bin, "pep-lsp" + exe);
   if (!fs.existsSync(server)) {
@@ -249,6 +271,49 @@ function pepperHome() {
   }
   if (!fs.existsSync(path.join(home, "toolchains"))) return null;
   return home;
+}
+
+/**
+ * Offers `action`, which runs `command` with `args` as a task, so its
+ * progress and any error show in a terminal; once it succeeds, offers to
+ * reload the window, which picks the new toolchain up. "Don't Ask Again"
+ * stops this offer for this command line.
+ */
+async function offerInstall(context, message, action, command, args) {
+  let vscode;
+  try {
+    vscode = require("vscode");
+  } catch {
+    return;
+  }
+  const key = `pepper.declined:${[path.basename(command), ...args].join(" ")}`;
+  if (context?.globalState.get(key)) return;
+  const never = "Don't Ask Again";
+  const choice = await vscode.window.showWarningMessage(message, action, never);
+  if (choice === never) return context?.globalState.update(key, true);
+  if (choice !== action) return;
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  const task = new vscode.Task(
+    { type: "pepper" },
+    folder ?? vscode.TaskScope.Global,
+    args[0] === "install" ? `pepper ${args.join(" ")}` : action,
+    "pepper",
+    new vscode.ProcessExecution(command, args, folder ? { cwd: folder.uri.fsPath } : {})
+  );
+  const running = await vscode.tasks.executeTask(task);
+  const ended = vscode.tasks.onDidEndTaskProcess(async (e) => {
+    if (e.execution !== running) return;
+    ended.dispose();
+    if (e.exitCode !== 0) {
+      vscode.window.showErrorMessage(`Pepper: '${task.name}' failed (exit ${e.exitCode}); its terminal shows why.`);
+      return;
+    }
+    const reload = "Reload Window";
+    if ((await vscode.window.showInformationMessage("Pepper: the toolchain is installed.", reload)) === reload) {
+      vscode.commands.executeCommand("workbench.action.reloadWindow");
+    }
+  });
+  context?.subscriptions.push(ended);
 }
 
 function showWarning(message) {

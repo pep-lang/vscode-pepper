@@ -67,6 +67,11 @@
         }
       }
     },
+    "taskDefinitions": [
+      {
+        "type": "pepper"
+      }
+    ],
     "commands": [
       {
         "command": "pepper.restartServer",
@@ -77,7 +82,8 @@
   },
   "scripts": {
     "bundle": "esbuild src/extension.js --bundle --platform=node --format=cjs --target=node18 --external:vscode --outfile=dist/extension.js",
-    "vscode:prepublish": "npm run bundle"
+    "vscode:prepublish": "npm run bundle",
+    "test": "node --test src/toolchain.test.js"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
