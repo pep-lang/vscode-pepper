@@ -60,18 +60,19 @@ jobs:
             tag=$(gh release view -R "$PEPPER_REPOSITORY" --json tagName -q .tagName)
             version="${tag#v}"
           fi
-          mkdir -p archives
-          gh release download "v$version" -R "$PEPPER_REPOSITORY" -D archives \
+          archives="$RUNNER_TEMP/archives"
+          mkdir -p "$archives"
+          gh release download "v$version" -R "$PEPPER_REPOSITORY" -D "$archives" \
             -p "pepper-$version-linux-x64.tar.gz" -p "pepper-$version-macos-arm64.tar.gz" \
             -p "pepper-$version-windows-x64.zip" -p SHA256SUMS
-          (cd archives && grep -E "[ *]pepper-$version-(linux-x64|macos-arm64|windows-x64)\.(tar\.gz|zip)$" SHA256SUMS | sha256sum -c -)
+          (cd "$archives" && grep -E "[ *]pepper-$version-(linux-x64|macos-arm64|windows-x64)\.(tar\.gz|zip)$" SHA256SUMS | sha256sum -c -)
           for pair in linux-x64:linux-x64 macos-arm64:darwin-arm64; do
             archive="${pair%%:*}" target="${pair##*:}"
             mkdir -p "server/$target"
-            tar -xzf "archives/pepper-$version-$archive.tar.gz" -C "server/$target" --strip-components=2 "pepper-$version-$archive/bin/pep-lsp"
+            tar -xzf "$archives/pepper-$version-$archive.tar.gz" -C "server/$target" --strip-components=2 "pepper-$version-$archive/bin/pep-lsp"
           done
           mkdir -p server/win32-x64
-          unzip -j -o "archives/pepper-$version-windows-x64.zip" "pepper-$version-windows-x64/bin/pep-lsp.exe" -d server/win32-x64
+          unzip -j -o "$archives/pepper-$version-windows-x64.zip" "pepper-$version-windows-x64/bin/pep-lsp.exe" -d server/win32-x64
           chmod +x server/*/pep-lsp*
           find server -type f -exec ls -l {} +
           echo "PEPPER_BUNDLED=$version" >> "$GITHUB_ENV"
@@ -81,6 +82,11 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npx --yes @vscode/vsce@3 package --out pepper-language.vsix
+          # Three servers of about 12 MB each, compressed: anything far larger
+          # has picked up files that are not the extension's.
+          size=$(stat -c %s pepper-language.vsix)
+          echo "pepper-language.vsix: $size bytes"
+          [ "$size" -lt 50000000 ] || { echo "::error::pepper-language.vsix is $size bytes; check .vscodeignore"; exit 1; }
 
       - name: Upload vsix (branch)
         if: github.ref != 'refs/heads/main'
