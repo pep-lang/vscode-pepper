@@ -1,8 +1,6 @@
 node_modules/
-# Written by scripts/install-vscode-extension.ps1 and the VSIX workflow.
+# Written by the VSIX workflow (and pepper's scripts/install-vscode-extension.ps1).
 server/
 *.vsix
 # The esbuild bundle (`npm run bundle`, run by vsce before packaging).
 dist/
-# Copied from the repository root when packaging.
-LICENSE.md

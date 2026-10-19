@@ -1,4 +1,5 @@
 .vscode/**
+.github/**
 .gitignore
 package-lock.json
 *.map

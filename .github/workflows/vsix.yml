@@ -1,0 +1,113 @@
+# Packages the extension into one .vsix with the pep-lsp server bundled for
+# each platform Pepper publishes a toolchain for.
+#
+# The servers come from the release archives of a Pepper version (each holds
+# bin/pep-lsp), so nothing is compiled here and every job runs on a
+# GitHub-hosted runner. `pepper_version` picks the release; empty means the
+# newest one. Platforms without an archive (macOS x64, arm64 Windows and
+# Linux) get no bundled server: the extension still uses the toolchain's
+# pep-lsp there, or `pepper.lspPath`.
+#
+# Run it by hand: `gh workflow run vsix.yml [-f pepper_version=0.10.0]`. On
+# main it publishes the .vsix on the release `v<version>`, the version in
+# package.json (repeat runs replace the asset); on any other branch it keeps
+# the .vsix as a run artifact.
+#
+# PEPPER_REPOSITORY (a repository variable) names the Pepper repository,
+# pep-lang/pepper by default. While that repository is private, the
+# PEPPER_RELEASES_TOKEN secret must be a token that can read its releases.
+name: VSIX
+
+on:
+  workflow_dispatch:
+    inputs:
+      pepper_version:
+        description: "Pepper release whose pep-lsp to bundle, such as 0.10.0 (default: the newest)"
+        required: false
+        default: ""
+
+concurrency:
+  group: vsix-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # Each archive's bin/pep-lsp goes to server/<platform>-<arch>/, where
+      # src/serverPath.js looks for it.
+      - name: Bundle servers from the Pepper release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PEPPER_RELEASES_TOKEN || github.token }}
+          PEPPER_REPOSITORY: ${{ vars.PEPPER_REPOSITORY || 'pep-lang/pepper' }}
+          PEPPER_VERSION: ${{ inputs.pepper_version }}
+        run: |
+          set -euxo pipefail
+          version="$PEPPER_VERSION"
+          if [ -z "$version" ]; then
+            tag=$(gh release view -R "$PEPPER_REPOSITORY" --json tagName -q .tagName)
+            version="${tag#v}"
+          fi
+          mkdir -p archives
+          gh release download "v$version" -R "$PEPPER_REPOSITORY" -D archives \
+            -p "pepper-$version-linux-x64.tar.gz" -p "pepper-$version-macos-arm64.tar.gz" \
+            -p "pepper-$version-windows-x64.zip" -p SHA256SUMS
+          (cd archives && grep -E "[ *]pepper-$version-(linux-x64|macos-arm64|windows-x64)\.(tar\.gz|zip)$" SHA256SUMS | sha256sum -c -)
+          for pair in linux-x64:linux-x64 macos-arm64:darwin-arm64; do
+            archive="${pair%%:*}" target="${pair##*:}"
+            mkdir -p "server/$target"
+            tar -xzf "archives/pepper-$version-$archive.tar.gz" -C "server/$target" --strip-components=2 "pepper-$version-$archive/bin/pep-lsp"
+          done
+          mkdir -p server/win32-x64
+          unzip -j -o "archives/pepper-$version-windows-x64.zip" "pepper-$version-windows-x64/bin/pep-lsp.exe" -d server/win32-x64
+          chmod +x server/*/pep-lsp*
+          find server -type f -exec ls -l {} +
+          echo "PEPPER_BUNDLED=$version" >> "$GITHUB_ENV"
+
+      # `vscode:prepublish` bundles the extension with esbuild.
+      - name: Package vsix
+        run: |
+          npm ci --no-audit --no-fund
+          npx --yes @vscode/vsce@3 package --out pepper-language.vsix
+
+      - name: Upload vsix (branch)
+        if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pepper-language-vsix
+          path: pepper-language.vsix
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish to the release
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          tag="v$version"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            printf '%s\n' \
+              "Pepper for VS Code $version." \
+              "" \
+              "Bundles the pep-lsp server of Pepper $PEPPER_BUNDLED for Windows x64," \
+              "Linux x64 and macOS arm64. Install it with Extensions: Install from VSIX..." \
+              > "$RUNNER_TEMP/notes.md"
+            gh release create "$tag" --target "$GITHUB_SHA" --title "Pepper for VS Code v$version" \
+              --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          gh release upload "$tag" pepper-language.vsix --clobber
