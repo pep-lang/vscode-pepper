@@ -24,6 +24,7 @@ to install the toolchain.
 | `pepper.inlayHints.implicitConversions` | Shows the constructor call an `[Implicit]` conversion inserts (default on) |
 | `pepper.inlayHints.parameterNames` | Shows the parameter name before a literal passed by position (default on) |
 | `pepper.buildOptions` | The `-D` build options the language server assumes, as `NAME` or `NAME=VALUE` |
+| `pepper.libraryPath` | Folders to look in for an imported Pepper library's interface (`.pepi`), as the compiler's `-L` takes them; a relative folder is in the document's project folder. The server searches them before the folders in `PEPPER_LIBRARY_PATH` |
 
 **Pepper: Restart Language Server** restarts the server on demand.
 
