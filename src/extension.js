@@ -51,6 +51,11 @@ async function activate(context) {
           buildOptions: vscode.workspace
             .getConfiguration("pepper")
             .get("buildOptions", []),
+          // Relative folders are left as written: the server resolves them
+          // against each document's project folder.
+          libraryPath: vscode.workspace
+            .getConfiguration("pepper")
+            .get("libraryPath", []),
         },
       }
     );
@@ -79,7 +84,11 @@ async function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand("pepper.restartServer", () => restart("requested")),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("pepper.inlayHints") || e.affectsConfiguration("pepper.buildOptions")) {
+      if (
+        e.affectsConfiguration("pepper.inlayHints") ||
+        e.affectsConfiguration("pepper.buildOptions") ||
+        e.affectsConfiguration("pepper.libraryPath")
+      ) {
         restart("settings changed");
       }
     }),

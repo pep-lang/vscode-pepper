@@ -63,6 +63,12 @@
           "items": { "type": "string" },
           "default": [],
           "description": "The build options the language server assumes, as the compiler's -D takes them: NAME or NAME=VALUE (for example USE_ZLIB, LOG_LEVEL=2). They decide which [BuildOption] and [Target(BuildOption(...))] code is active."
+        },
+        "pepper.libraryPath": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "The folders where the language server looks for the interface (.pepi) of an imported Pepper library built with --lib pepper, as the compiler's -L takes them. A relative folder is in the document's project folder (the one holding its pep.toml, else the document's own). These are searched before the folders in PEPPER_LIBRARY_PATH, which the server also searches."
         }
       }
     },
